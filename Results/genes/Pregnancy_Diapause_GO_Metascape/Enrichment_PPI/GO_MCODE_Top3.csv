@@ -1,0 +1,9 @@
+Network,Annotation
+MyList,GO:0043009|chordate embryonic development|-11.0;GO:0009792|embryo development ending in birth or egg hatching|-10.6;R-HSA-75205|Dissolution of Fibrin Clot|-9.0
+MyList_MCODE_ALL,R-HSA-109582|Hemostasis|-11.2;GO:0042730|fibrinolysis|-9.4;R-HSA-114608|Platelet degranulation|-9.3
+MyList_SUB1_MCODE_1,R-HSA-983712|Ion channel transport|-8.2;WP5065|SARS-CoV-2 altering angiogenesis via NRP1|-7.6;GO:0050801|ion homeostasis|-7.2
+MyList_SUB1_MCODE_2,R-HSA-381426|Regulation of Insulin-like Growth Factor (IGF) transport and uptake by Insulin-like Growth Factor Binding Proteins (IGFBPs)|-14.2;R-HSA-114608|Platelet degranulation|-14.1;R-HSA-76005|Response to elevated platelet cytosolic Ca2+|-14.0
+MyList_SUB1_MCODE_3,R-HSA-5083635|Defective B3GALTL causes PpS|-14.7;R-HSA-5173214|O-glycosylation of TSR domain-containing proteins|-14.6;R-HSA-3906995|Diseases associated with O-glycosylation of proteins|-13.3
+MyList_SUB1_MCODE_4,GO:0035335|peptidyl-tyrosine dephosphorylation|-6.8;GO:0006470|protein dephosphorylation|-5.9;WP382|MAPK signaling pathway|-5.7
+MyList_SUB1_MCODE_5,GO:0071345|cellular response to cytokine stimulus|-4.9;GO:0034097|response to cytokine|-4.7
+MyList_SUB1_MCODE_6,R-HSA-71291|Metabolism of amino acids and derivatives|-5.7

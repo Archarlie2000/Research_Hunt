@@ -1,0 +1,10 @@
+sample	condition	replicate	protocol	organism	experiment	run
+D1	2_D	1	RNASeq	Mink	13D-1_S27_L007.genes.results	13D-1_S27_L007
+D2	2_D	2	RNASeq	Mink	13D-2_S30_L007.genes.results	13D-2_S30_L007
+D3	2_D	3	RNASeq	Mink	13D-3_S33_L007.genes.results	13D-3_S33_L007
+E1	1_E	1	RNASeq	Mink	13E-1_S26_L007.genes.results	13E-1_S26_L007
+E2	1_E	2	RNASeq	Mink	13E-2_S29_L007.genes.results	13E-2_S29_L007
+E3	1_E	3	RNASeq	Mink	13E-3_S32_L007.genes.results	13E-3_S32_L007
+P1	3_P	1	RNASeq	Mink	13P-1_S28_L007.genes.results	13P-1_S28_L007
+P2	3_P	2	RNASeq	Mink	13P-2_S31_L007.genes.results	13P-2_S31_L007
+P3	3_P	3	RNASeq	Mink	13P-3_S34_L007.genes.results	13P-3_S34_L007

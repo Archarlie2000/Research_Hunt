@@ -1,0 +1,26 @@
+{
+    "id": "54AC2112",
+    "path": "~/Hunt Lab/Mink Transcriptome/KEGG and PPI Figures.R",
+    "project_path": "KEGG and PPI Figures.R",
+    "type": "r_source",
+    "hash": "3155179108",
+    "contents": "",
+    "dirty": false,
+    "created": 1655852159656.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "4,16",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1662603646,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1662603646244,
+    "read_only": false,
+    "read_only_alternatives": []
+}

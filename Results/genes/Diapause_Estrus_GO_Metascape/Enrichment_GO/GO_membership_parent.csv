@@ -1,0 +1,22 @@
+_MEMBER_MyList,_LogP_MyList,GO,Description,_PATTERN_,_RANK_,CHILD_GO_MyList
+1,-15.336418759712938,GO:0065007,biological regulation,M1,1,GO:0050801 ion homeostasis
+1,-12.909110321107164,GO:0032501,multicellular organismal process,M1,1,GO:0044057 regulation of system process
+1,-12.01450755152367,GO:0050896,response to stimulus,M1,1,GO:0009611 response to wounding
+1,-11.743230344525,GO:0032502,developmental process,M1,1,GO:0030855 epithelial cell differentiation
+1,-11.14241262420451,GO:0051179,localization,M1,1,GO:0051272 positive regulation of cellular component movement
+1,-10.863964928229805,GO:0040011,locomotion,M1,1,GO:2000147 positive regulation of cell motility
+1,-10.696603372559924,GO:0050789,regulation of biological process,M1,1,GO:0031344 regulation of cell projection organization
+1,-9.690964284299962,GO:0023052,signaling,M1,1,GO:0043408 regulation of MAPK cascade
+1,-9.523619646001729,GO:0008152,metabolic process,M1,1,GO:0008610 lipid biosynthetic process
+1,-9.005787652439679,GO:0048518,positive regulation of biological process,M1,1,GO:0033674 positive regulation of kinase activity
+1,-8.77285959530088,GO:0022610,biological adhesion,M1,1,GO:0030155 regulation of cell adhesion
+1,-7.8992732923441675,GO:0009987,cellular process,M1,1,GO:0034330 cell junction organization
+1,-5.905544246195272,GO:0022414,reproductive process,M1,1,GO:0048608 reproductive structure development
+1,-5.628814580673494,GO:0098754,detoxification,M1,1,GO:1990961 xenobiotic detoxification by transmembrane export across the plasma membrane
+1,-5.188854846551019,GO:0040007,growth,M1,1,GO:0042246 tissue regeneration
+1,-5.184867342885665,GO:0048519,negative regulation of biological process,M1,1,GO:0030195 negative regulation of blood coagulation
+1,-4.4134764531746935,GO:0002376,immune system process,M1,1,GO:0030890 positive regulation of B cell proliferation
+1,-4.387028991793516,GO:0044419,biological process involved in interspecies interaction between organisms,M1,1,GO:0032496 response to lipopolysaccharide
+1,-3.2975932556787586,GO:0007610,behavior,M1,1,GO:0007610 behavior
+1,-2.61066993760115,GO:0016032,viral process,M1,1,GO:0046718 viral entry into host cell
+1,-2.1027967723477,GO:0110148,biomineralization,M1,1,GO:0070167 regulation of biomineral tissue development

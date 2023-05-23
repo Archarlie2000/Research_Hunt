@@ -10,7 +10,7 @@ library(STRINGdb)
 ##### DATA PREPARATION #####
 
 #Set the directory with your files
-dir <- "~/Hunt Lab/Mink Transcriptome/Results/genes"
+
 
 # Load dataset
 rna_results <- read.csv("condition_2_D_vs_1_E.csv", header=TRUE, row.names=1)
@@ -33,6 +33,9 @@ rna_results <- rna_results[rna_results$pvalue < 0.05,]
 rna_results <- rna_results[!apply(rna_results == "", 1, any), ,]
 rna_results <- rna_results[!is.na(rna_results$pvalue),]
 rna_results <- rna_results[!is.na(rna_results$hgnc_id),]
+
+write.csv(rna_results, "condition_2_D_vs_1_E_gen.csv")
+
 
 # Convert HGNC IDs into EntrezGene IDs
 ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
@@ -83,8 +86,10 @@ keggr <- enrichKEGG(gene = names(gene_list),
 keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 
 # Save the KEGG pathway gene enrichment analysis
-writedir <- file.path(dir,paste(rna_file,"_kegg.csv", sep = ""))
-write.csv(as.data.frame(keggr))
+
+write.csv(as.data.frame(keggr), "condition_2_D_vs_1_E_KEGG.csv")
+
+
 
 ##### KEGG VISUAL PATHWAY #####
 

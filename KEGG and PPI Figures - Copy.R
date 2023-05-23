@@ -7,11 +7,11 @@ library(STRINGdb)
 ##### DATA PREPARATION #####
 
 #Set the directory with your files
-dir <- "~/Hunt Lab/Mink Transcriptome/Results/genes"
 
 # Load dataset
-rna_file <- "condition_2_D_vs_1_E.csv"
-rna_results <- read.csv(file.path(dir, rna_file), header=TRUE, row.names=1)
+
+
+rna_results <- read.csv("condition_3_P_vs_2_D.csv", header=TRUE, row.names=1)
 
 # Add HGNC and uniprot names to the database
 ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
@@ -22,13 +22,6 @@ hgnc_m <- getBM(filters = "ensembl_gene_id",
                values = rna_results$Row.names, 
                mart = ensembl_m)
 
-# uniprot <- getBM(filters = "ensembl_gene_id",
-#                attributes = c("ensembl_gene_id","uniprot_gn_symbol"),
-#                values = rna_results$Row.names, 
-#                mart = ensembl_m)
-# uniprot_unique <- duplicated(uniprot$ensembl_gene_id)
-# uniprot <- uniprot[!uniprot_unique,]
-
 rna_results <- merge(rna_results, hgnc_m, by.x = "Row.names", by.y = "ensembl_gene_id")
 # rna_results <- merge(rna_results, uniprot, by.x = "Row.names", by.y = "ensembl_gene_id")
 
@@ -37,6 +30,9 @@ rna_results <- rna_results[rna_results$pvalue < 0.05,]
 rna_results <- rna_results[!apply(rna_results == "", 1, any), ,]
 rna_results <- rna_results[!is.na(rna_results$pvalue),]
 rna_results <- rna_results[!is.na(rna_results$hgnc_id),]
+
+
+write.csv(rna_results, "condition_3_P_vs_2_D_gen.csv")
 
 # Convert HGNC IDs into EntrezGene IDs
 ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
@@ -71,8 +67,8 @@ gor <- enrichGO(gene = names(gene_list),
                 readable = TRUE)
 
 # Save the GO enrichment analysis
-writedir <- file.path(dir,paste(rna_file,"_geneontology.csv", sep = ""))
-write.csv(as.data.frame(gor), writedir)
+
+write.csv(as.data.frame(gor), "condition_3_P_vs_2_D_geneontology.csv")
 
 
 ##### KEGG ENRICHMENT #####
@@ -86,8 +82,8 @@ keggr <- enrichKEGG(gene = names(gene_list),
 keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 
 # Save the KEGG pathway gene enrichment analysis
-writedir <- file.path(dir,paste(rna_file,"_kegg.csv", sep = ""))
-write.csv(as.data.frame(keggr), writedir)
+
+write.csv(as.data.frame(keggr), "condition_3_P_vs_2_D_kegg.csv")
 
 ##### KEGG VISUAL PATHWAY #####
 

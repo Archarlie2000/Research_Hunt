@@ -4,31 +4,35 @@ library(clusterProfiler)
 library(pathview)
 library(STRINGdb)
 
-
-# BiocManager::install("pathview")
-
 ##### DATA PREPARATION #####
 
 #Set the directory with your files
 dir <- "~/Hunt Lab/Mink Transcriptome/Results/genes"
 
 # Load dataset
-rna_results <- read.csv("condition_2_D_vs_1_E.csv", header=TRUE, row.names=1)
+rna_file <- "condition_2_D_vs_1_E.csv"
+rna_results <- read.csv(file.path(dir, rna_file), header=TRUE, row.names=1)
 
 # Add HGNC and uniprot names to the database
 ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
                    dataset = "nvison_gene_ensembl")
+
 hgnc_m <- getBM(filters = "ensembl_gene_id",
                attributes = c("ensembl_gene_id","hgnc_id"),
                values = rna_results$Row.names, 
                mart = ensembl_m)
 
+# uniprot <- getBM(filters = "ensembl_gene_id",
+#                attributes = c("ensembl_gene_id","uniprot_gn_symbol"),
+#                values = rna_results$Row.names, 
+#                mart = ensembl_m)
+# uniprot_unique <- duplicated(uniprot$ensembl_gene_id)
+# uniprot <- uniprot[!uniprot_unique,]
 
-# Merge gen names to gen ID
 rna_results <- merge(rna_results, hgnc_m, by.x = "Row.names", by.y = "ensembl_gene_id")
+# rna_results <- merge(rna_results, uniprot, by.x = "Row.names", by.y = "ensembl_gene_id")
 
 # Drop all empty rows and anything not significant
-# Drop all the wierd stuffs like N/A or blanks
 rna_results <- rna_results[rna_results$pvalue < 0.05,]
 rna_results <- rna_results[!apply(rna_results == "", 1, any), ,]
 rna_results <- rna_results[!is.na(rna_results$pvalue),]
@@ -79,12 +83,11 @@ keggr <- enrichKEGG(gene = names(gene_list),
                  organism = "hsa",
                  keyType = "ncbi-geneid",
                  pvalueCutoff = 0.05)
-
 keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 
 # Save the KEGG pathway gene enrichment analysis
 writedir <- file.path(dir,paste(rna_file,"_kegg.csv", sep = ""))
-write.csv(as.data.frame(keggr))
+write.csv(as.data.frame(keggr), writedir)
 
 ##### KEGG VISUAL PATHWAY #####
 
@@ -93,6 +96,7 @@ pathway_list <- keggr$ID[keggr$qvalue < 0.05]
 
 # Prepare directory for pathway output
 dir.create(file.path(dir,paste0("pathways_",rna_file)), recursive = TRUE)
+setwd(file.path(dir,paste0("pathways_",rna_file)))
 
 # Make KEGG pathways using the gene_list expression values from significant pathways
 for (pathway in pathway_list) {

@@ -17,9 +17,9 @@ F2_filtered$phase <- "2"
 
 Merge1 <- merge(F1_filtered, F2_filtered, by = "hgnc_id") %>% 
   mutate(diff_log2 = abs(log2FoldChange.x - log2FoldChange.y)) %>% 
-  arrange(diff_log2) %>% 
-  filter(diff_log2 > 6)
+  arrange(diff_log2) 
 
+write.csv(Merge1, "gen_compare_diff1_diff2.csv")
 
 
 ggplot(Merge1) +
@@ -33,3 +33,4 @@ ggplot(Merge1) +
   ) +
   xlab("Gens") +
   ylab("Difference in log2 counts")
+

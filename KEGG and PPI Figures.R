@@ -3,7 +3,7 @@ library(org.Hs.eg.db)
 library(clusterProfiler)
 library(pathview)
 library(STRINGdb)
-
+options(repos = BiocManager::repositories())
 
 # BiocManager::install("pathview")
 
@@ -34,7 +34,7 @@ rna_results <- rna_results[!apply(rna_results == "", 1, any), ,]
 rna_results <- rna_results[!is.na(rna_results$pvalue),]
 rna_results <- rna_results[!is.na(rna_results$hgnc_id),]
 
-write.csv(rna_results, "condition_2_D_vs_1_E_gen.csv")
+#write.csv(rna_results, "condition_2_D_vs_1_E_gen.csv")
 
 
 # Convert HGNC IDs into EntrezGene IDs
@@ -60,6 +60,8 @@ rna_list <- rna_list[!is.na(rna_list$entrezgene_id),c("entrezgene_id", "log2Fold
 gene_list <- rna_list$log2FoldChange
 names(gene_list) <- rna_list$entrezgene_id
 
+
+
 ##### GO ENRICHMENT #####
 
 # Create GO enrichment analysis (over representation)
@@ -70,8 +72,8 @@ gor <- enrichGO(gene = names(gene_list),
                 readable = TRUE)
 
 # Save the GO enrichment analysis
-writedir <- file.path(dir,paste(rna_file,"_geneontology.csv", sep = ""))
-write.csv(as.data.frame(gor), writedir)
+#writedir <- file.path(dir,paste(rna_file,"_geneontology.csv", sep = ""))
+#write.csv(as.data.frame(gor), writedir)
 
 
 ##### KEGG ENRICHMENT #####
@@ -87,7 +89,7 @@ keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 
 # Save the KEGG pathway gene enrichment analysis
 
-write.csv(as.data.frame(keggr), "condition_2_D_vs_1_E_KEGG.csv")
+#write.csv(as.data.frame(keggr), "condition_2_D_vs_1_E_KEGG.csv")
 
 
 

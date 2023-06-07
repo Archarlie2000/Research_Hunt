@@ -32,7 +32,7 @@ rna_results <- rna_results[!is.na(rna_results$pvalue),]
 rna_results <- rna_results[!is.na(rna_results$hgnc_id),]
 
 
-write.csv(rna_results, "condition_3_P_vs_2_D_gen.csv")
+#write.csv(rna_results, "condition_3_P_vs_2_D_gen.csv")
 
 # Convert HGNC IDs into EntrezGene IDs
 ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
@@ -68,7 +68,7 @@ gor <- enrichGO(gene = names(gene_list),
 
 # Save the GO enrichment analysis
 
-write.csv(as.data.frame(gor), "condition_3_P_vs_2_D_geneontology.csv")
+#write.csv(as.data.frame(gor), "condition_3_P_vs_2_D_geneontology.csv")
 
 
 ##### KEGG ENRICHMENT #####
@@ -83,7 +83,7 @@ keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 
 # Save the KEGG pathway gene enrichment analysis
 
-write.csv(as.data.frame(keggr), "condition_3_P_vs_2_D_kegg.csv")
+#write.csv(as.data.frame(keggr), "condition_3_P_vs_2_D_kegg.csv")
 
 ##### KEGG VISUAL PATHWAY #####
 

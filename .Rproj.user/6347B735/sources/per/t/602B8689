@@ -1,0 +1,28 @@
+{
+    "id": "602B8689",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1683243990292.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "id": "628957f6a5b24e6d9badac0f55fc9825",
+        "name": "ensembl_h",
+        "title": "ensembl_h",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Sourcerdhz6846ddwf"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2661547043664,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1683243990292,
+    "read_only": false,
+    "read_only_alternatives": []
+}

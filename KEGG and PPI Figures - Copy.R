@@ -3,6 +3,7 @@ library(org.Hs.eg.db)
 library(clusterProfiler)
 library(pathview)
 library(STRINGdb)
+options(repos = BiocManager::repositories())
 
 ##### DATA PREPARATION #####
 

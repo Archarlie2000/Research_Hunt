@@ -99,7 +99,7 @@ keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 pathway_list <- keggr$ID[keggr$qvalue < 0.05]
 
 # Prepare directory for pathway output
-dir.create(file.path(dir,paste0("pathways_",rna_file)), recursive = TRUE)
+#dir.create(file.path(dir,paste0("pathways_",rna_file)), recursive = TRUE)
 
 # Make KEGG pathways using the gene_list expression values from significant pathways
 for (pathway in pathway_list) {

@@ -102,6 +102,9 @@ pathway_list <- keggr$ID[keggr$qvalue < 0.05]
 #dir.create(file.path(dir,paste0("pathways_",rna_file)), recursive = TRUE)
 
 # Make KEGG pathways using the gene_list expression values from significant pathways
+# This is where we make graphs
+# but dont use the for loop, you can but you dont want to
+
 for (pathway in pathway_list) {
   pathview(gene.data = gene_list, pathway.id = pathway, species = "hsa")
 }

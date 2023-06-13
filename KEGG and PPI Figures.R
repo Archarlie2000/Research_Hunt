@@ -5,7 +5,16 @@ library(pathview)
 library(STRINGdb)
 options(repos = BiocManager::repositories())
 
+
+# if (!require("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# BiocManager::install(version = "3.17")
+
+# BiocManager::install("biomaRt)
+# BiocManager::install("org.Hs.eg.db")
+# BiocManager::install("clusterProfiler")
 # BiocManager::install("pathview")
+# BiocManager::install("STRINGdb")
 
 ##### DATA PREPARATION #####
 

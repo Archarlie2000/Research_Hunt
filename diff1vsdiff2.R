@@ -17,3 +17,7 @@ df2_GEN_filtered <- df2_GEN[df1_GEN$GENEID %in% target_gene[[1]], ]
 Holistic_view <-  merge(df1_GEN_filtered, df2_GEN_filtered, by = "GENEID")
 
 
+
+
+list_1 <- read.csv("genlist_1.csv")
+list_2 <- read.csv("genlist_2.csv")

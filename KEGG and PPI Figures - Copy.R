@@ -92,8 +92,7 @@ keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
 pathway_list <- keggr$ID[keggr$qvalue < 0.05]
 
 # Prepare directory for pathway output
-dir.create(file.path(dir,paste0("pathways_",rna_file)), recursive = TRUE)
-setwd(file.path(dir,paste0("pathways_",rna_file)))
+
 
 # Make KEGG pathways using the gene_list expression values from significant pathways
 for (pathway in pathway_list) {
@@ -103,5 +102,3 @@ for (pathway in pathway_list) {
 ##### PROTEIN PROTEIN INTERATION GRAPH #####
 
 #
-string_db <- STRINGdb$new(version="11.5", species=9606, score_threshold=200, network_type="functional", input_directory="")
-example1_mapped <- string_db$map( rna_list, "entrezgene_id", removeUnmapped = TRUE )

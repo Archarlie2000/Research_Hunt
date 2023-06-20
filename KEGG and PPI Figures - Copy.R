@@ -93,7 +93,6 @@ pathway_list <- keggr$ID[keggr$qvalue < 0.05]
 
 # Prepare directory for pathway output
 
-
 # Make KEGG pathways using the gene_list expression values from significant pathways
 for (pathway in pathway_list) {
   pathview(gene.data = gene_list, pathway.id = pathway, species = "hsa")
@@ -102,3 +101,5 @@ for (pathway in pathway_list) {
 ##### PROTEIN PROTEIN INTERATION GRAPH #####
 
 #
+string_db <- STRINGdb$new(version="11.5", species=9606, score_threshold=200, network_type="functional", input_directory="")
+example1_mapped <- string_db$map( rna_list, "entrezgene_id", removeUnmapped = TRUE )

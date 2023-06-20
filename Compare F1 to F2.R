@@ -39,7 +39,7 @@ Merge1 <- merge(F1_filtered, F2_filtered, by = "hgnc_id") %>%
 ##Comparison
 common_elements <- intersect(k1, k2)
 
-
+ 
 ### Enrishment Analysis
 
 gor <- enrichGO(gene = common_elements,

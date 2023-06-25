@@ -1,5 +1,9 @@
 
 
+library(gage)
+library(gageData)
+library(pathview)
+
 ENRTEZID_ID <- mapIds(org.Hs.eg.db, keys = Gene_ID, keytype = "GENENAME" , column = "ENTREZID")
 names(FoldChanges) = ENRTEZID_ID
 head(FoldChanges)
@@ -18,6 +22,9 @@ keggres = gage(exprs = LogChange, gsets = kegg.sets.hm, same.dir = TRUE)
 
 tmp = sapply("hsa04914", function(pid) pathview(gene.data = logchange1, pathway.id = pid, species="hsa"))
 
+colnames(genlist_1) <- c("X", "gene_list")
+colnames(genlist_2) <- c("X", "gene_list")
+
 
 logchange1 <- genlist_1$gene_list
 logchange2 <- genlist_2$gene_list
@@ -30,4 +37,6 @@ names(logchange2) <- genID2
 
 #############################
 
-tmp = sapply("map04914", function(pid) pathview(gene.data = logchange2, pathway.id = pid, species="hsa"))
+tmp = sapply("04914", function(pid) pathview(gene.data = logchange2, pathway.id = pid, species="hsa"))
+
+tmp = sapply("04914", function(pid) pathview(gene.data = logchange1, pathway.id = pid, species="hsa"))

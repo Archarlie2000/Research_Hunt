@@ -30,4 +30,4 @@ names(logchange2) <- genID2
 
 #############################
 
-tmp = sapply("hsa04914", function(pid) pathview(gene.data = logchange2, pathway.id = pid, species="hsa"))
+tmp = sapply("map04914", function(pid) pathview(gene.data = logchange2, pathway.id = pid, species="hsa"))

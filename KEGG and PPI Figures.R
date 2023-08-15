@@ -10,9 +10,10 @@ options(repos = BiocManager::repositories())
 #   install.packages("BiocManager")
 # BiocManager::install(version = "3.17")
 
-# BiocManager::install("biomaRt)
+
 # BiocManager::install("org.Hs.eg.db")
 # BiocManager::install("clusterProfiler")
+# BiocManager::install("biomaRt")
 # BiocManager::install("pathview")
 # BiocManager::install("STRINGdb")
 

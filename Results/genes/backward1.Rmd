@@ -90,6 +90,8 @@ preview <- rbind(E1[1:10, ], E2[1:10, ], E3[1:10, ],
 datatable(preview, caption = "preview of raw data")
 ```
 
+Isoforms have been accounted for; reads with isoforms are mapped back to the expected counts through their percentages.
+
 
 ## 1. Remove outliers
 
@@ -145,7 +147,7 @@ Other analytical parameters, such as quantiles, medians, standard deviation, var
 PCA clusters the similar samples based on impacts from different genes. P1 and P3 formed a cluster. As we learned previously, P2 might not be valid. E1, E2, E3 had formed another cluster. However; D1, D2, and D3 seems to be scattered. I decided to remove P2 and D3.
 
 
-```{r}
+```{r warning=FALSE}
 df_master <- cbind(E1$expected_count, 
                    E2$expected_count, E3$expected_count,
               D1$expected_count, D2$expected_count, D3$expected_count,
@@ -245,6 +247,8 @@ dds <- dds[keep,]
 res <- results(dds)
 res0.05_ED <- results(dds, alpha = 0.05)
 
+
+
 ```
 
 A significance level of 0.05 is chosen to filter out less significant genes. From estrus to diapause, 736 genes (3.9%) are up-regulated, and 440 genes (2.3%) are down-regulated. The M-A plot shows a significant shift in gene expression, as evidenced by a comparison between the blue and grey regions.
@@ -261,6 +265,12 @@ d <- plotCounts(dds, gene=which.min(res0.05_ED$padj),
 ggplot(d, aes(x=condition, y=count)) + 
   geom_point(position=position_jitter(w=0.1,h=0)) + 
   scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_ED <- as.data.frame(res0.05_ED) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_ED, caption = "Deseq2 reuslt")
 ```
 
 
@@ -316,6 +326,12 @@ d <- plotCounts(dds, gene=which.min(res0.05_DP$padj),
 ggplot(d, aes(x=condition, y=count)) + 
   geom_point(position=position_jitter(w=0.1,h=0)) + 
   scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_DP <- as.data.frame(res0.05_DP) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_DP, caption = "Deseq2 reuslt")
 ```
 
 
@@ -356,6 +372,7 @@ dds <- dds[keep,]
 # Explore Results ----------------
 res <- results(dds)
 res0.05_EP <- results(dds, alpha = 0.05)
+# summary(res0.05_EP)
 
 ```
 
@@ -373,12 +390,19 @@ d <- plotCounts(dds, gene=which.min(res0.05_EP$padj),
 ggplot(d, aes(x=condition, y=count)) + 
   geom_point(position=position_jitter(w=0.1,h=0)) + 
   scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_EP <- as.data.frame(res0.05_EP) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_EP, caption = "Deseq2 reuslt")
 ```
+
 
 
 ## 4. Mapping genome
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 
 ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
                    dataset = "nvison_gene_ensembl")

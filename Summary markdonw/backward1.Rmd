@@ -1,0 +1,582 @@
+---
+title: "Validation"
+date: '2023-08-12'
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+
+
+# install.packages("tidyverse")
+# install.packages("mosaic")
+# install.packages("pander")
+# install.packages("ggplot2")
+# install.packages("ggfortify")
+# install.packages("DT")
+
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("org.Hs.eg.db")
+# BiocManager::install("AnnotationDbi")
+# BiocManager::install("DESeq2")
+# BiocManager::install("biomaRt")
+# BiocManager::install("pathview")
+# BiocManager::install("STRINGdb")
+
+
+options(repos = BiocManager::repositories())
+library(tidyverse)
+library(mosaic)
+library(pander)
+library(ggplot2)
+library(ggfortify)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(AnnotationDbi)
+library(DT)
+library(DESeq2)
+library(ggplot2)
+library(biomaRt)
+library(pathview)
+library(STRINGdb)
+library(png)
+library(grid)
+options(repos = BiocManager::repositories())
+
+```
+
+
+
+# Introduction
+
+To identify differential gene expression (DIGE) associated with implantation arrest, we gathered NGS data from 9 minks: 3 before diapause, 3 during diapause, and 3 after diapause.
+
+
+```{r}
+
+E1 <- read.csv('13E-1_S26_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E1")
+E2 <- read.csv('13E-2_S29_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E2")
+E3 <- read.csv('13E-3_S32_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E3")
+
+D1 <- read.csv('13D-1_S27_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D1")
+D2 <- read.csv('13D-2_S30_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D2")
+D3 <- read.csv('13D-3_S33_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D3")
+
+P1 <- read.csv('13P-1_S28_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P1")
+P2 <- read.csv('13P-2_S31_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P2")
+P3 <- read.csv('13P-3_S34_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P3")
+
+preview <- rbind(E1[1:10, ], E2[1:10, ], E3[1:10, ], 
+                 D1[1:10, ], D2[1:10, ], D3[1:10, ], 
+                 P1[1:10, ], P2[1:10, ], P3[1:10, ])[,-2]
+
+datatable(preview, caption = "preview of raw data")
+```
+
+Isoforms have been accounted for; reads with isoforms are mapped back to the expected counts through their percentages.
+
+
+# 1. Remove outliers
+
+Identifying outliers within each condition presents a challenge due to the limitation of having only three samples per condition. Furthermore, we are tasked with evaluating disparities across a vast set of 24,526 genes. For every gene within each condition and sample, we calculate the difference between its TPM and the average TPM, omitting that particular gene. Samples are then ranked based on the size of this difference for each gene. A ranking of 1 denotes the highest divergence among the trio. When the rankings are aggregated for a given sample, a lower total suggests that the genes in that sample often exhibit the most pronounced disparities compared to its counterparts. This methodology is also applied using FPKM metrics to corroborate the findings obtained through TPM.
+
+For row E in the first graph, the combined values of diff_B and diff_C are the smallest, which is satisfactory. It indicates that samples B and C are closely contending to exhibit the greatest disparity, with neither overshadowing the other. We aren't concerned about diff_A; it frequently has the smallest variance among the three, resulting in its highest cumulative value. Row D presents a similar pattern.
+
+In contrast, for row P, diff_B consistently manifests the largest difference. Samples A and C seldom surpass its variance. This leads us to suspect that external influences may have affected sample B, producing atypical results. The analysis based on FPKM metrics corroborates this observation.
+
+We exclude sample B in pregnancy phase to preserve validity of the data.
+
+```{r}
+calculate_rank_sums <- function(A, B, C) {
+  
+  data <- cbind(A, B, C)
+
+  # 1. Calculate the difference
+  diff_A <- abs(A - (B + C) / 2)
+  diff_B <- abs(B - (A + C) / 2)
+  diff_C <- abs(C - (A + B) / 2)
+  diff_data <- cbind(diff_A, diff_B, diff_C)
+
+  # 2. Rank the differences
+  rank_data <- t(apply(diff_data, 1, function(x) rank(-x)))
+
+  return(colSums(rank_data))
+}
+
+
+results_TPM <- rbind(
+  E = calculate_rank_sums(E1$TPM, E2$TPM, E3$TPM),
+  D = calculate_rank_sums(D1$TPM, D2$TPM, D3$TPM),
+  P = calculate_rank_sums(P1$TPM, P2$TPM, P3$TPM)
+)
+
+results_FPKM <- rbind(
+  E = calculate_rank_sums(E1$FPKM, E2$FPKM, E3$FPKM),
+  D = calculate_rank_sums(D1$FPKM, D2$FPKM, D3$FPKM),
+  P = calculate_rank_sums(P1$FPKM, P2$FPKM, P3$FPKM)
+)
+
+
+
+
+pander(results_TPM, caption = "Results for TPM")
+pander(results_FPKM, caption = "Results for FPKM")
+```
+
+Other analytical parameters, such as quantiles, medians, standard deviation, variance, Kruskal-Wallis tests, and differences in proportion were evaluated. However, none provided definitive conclusions, and the outcomes were inconsistent.
+
+# 2. Principle Componenet Analysis (PCA)
+
+PCA clusters the similar samples based on impacts from different genes. P1 and P3 formed a cluster. As we learned previously, P2 might not be valid. E1, E2, E3 had formed another cluster. However; D1, D2, and D3 seems to be scattered. I decided to remove P2 and D3.
+
+
+```{r warning=FALSE}
+df_master <- cbind(E1$expected_count, 
+                   E2$expected_count, E3$expected_count,
+              D1$expected_count, D2$expected_count, D3$expected_count,
+              P1$expected_count, P2$expected_count, P3$expected_count)
+rownames(df_master) <- E1$gene_id
+colnames(df_master) <- c("E1", "E2", "E3",
+                    "D1", "D2", "D3",
+                    "P1", "P2", "P3")
+
+df_master <- df_master[as.logical(rowSums(df_master != 0)), ]
+
+pca <- prcomp(t(df_master), scale=TRUE) 
+
+
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100, 1)
+
+pca.data <- data.frame(Sample=rownames(pca$x),
+  X=pca$x[,1],
+  Y=pca$x[,2])
+ 
+ggplot(data = pca.data, aes(x = X, y = Y, label = Sample)) +
+  geom_text() +
+  xlab(paste("PC1 - ", pca.var.per[1], "%", sep="")) +
+  ylab(paste("PC2 - ", pca.var.per[2], "%", sep="")) +
+  theme_bw() +
+  ggtitle("My PCA Graph")
+ 
+## get the name of the top 10 measurements (genes) that contribute
+## most to pc1.
+
+loading_scores <- pca$rotation[,1]
+gene_scores <- abs(loading_scores) ## get the magnitudes
+gene_score_ranked <- sort(gene_scores, decreasing=TRUE)
+top_10_genes <- names(gene_score_ranked[1:10])
+
+df_master <- df_master[, -c(6, 8)]
+datatable(df_master, caption = "Clean data")
+df_master <- as.data.frame(df_master)
+
+df_master$E1 <- as.integer(round(as.numeric(unlist(df_master$E1))))
+df_master$E2 <- as.integer(round(as.numeric(unlist(df_master$E2))))
+df_master$E3 <- as.integer(round(as.numeric(unlist(df_master$E3))))
+df_master$D1 <- as.integer(round(as.numeric(unlist(df_master$D1))))
+df_master$D2 <- as.integer(round(as.numeric(unlist(df_master$D2))))
+df_master$P1 <- as.integer(round(as.numeric(unlist(df_master$P1))))
+df_master$P3 <- as.integer(round(as.numeric(unlist(df_master$P3))))
+
+
+
+
+```
+
+
+# 3. Deseq2 (Calculate significant level)
+
+
+| Condition           | Up-Regulated      | Down-Regulated    |
+|---------------------|-------------------|-------------------|
+| From estrus to diapause | 736 genes (3.9%) | 440 genes (2.3%) |
+| From diapause to pregnancy | 1751 genes (11%) | 1474 genes (9.3%)|
+| From estrus to pregnancy    | 2457 genes (15%)     | 2224 genes (14%)  
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+
+## prepare DEG
+countData <- df_master[, c(1,2,3,4,5)]
+countData <- countData[as.logical(rowSums(countData != 0)), ] 
+countData <- as.data.frame(countData)
+
+# Constructing levels
+colData <- t(data.frame(
+  E1 = "Estrus",
+  E2 = "Estrus",
+  E3 = "Estrus",
+  D1 = "Diapause",
+  D2 = "Diapause"
+))
+colnames(colData) <- c("condition")
+
+
+## DEG Analysis
+dds <- DESeqDataSetFromMatrix(countData = countData, 
+                              colData = colData, 
+                              design = ~ condition)
+
+## Setting level
+
+dds$condition <- factor(dds$condition, levels = c("Estrus","Diapause"))
+dds <- DESeq(dds)
+
+# Remove low frequency count
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+# Explore Results ----------------
+res <- results(dds)
+res0.05_ED <- results(dds, alpha = 0.05)
+
+
+
+```
+
+A significance level of 0.05 is chosen to filter out less significant genes. From estrus to diapause, 736 genes (3.9%) are up-regulated, and 440 genes (2.3%) are down-regulated. The M-A plot shows a significant shift in gene expression, as evidenced by a comparison between the blue and grey regions.
+
+```{r}
+# MA plot
+plotMA(res0.05_ED)
+
+
+d <- plotCounts(dds, gene=which.min(res0.05_ED$padj), 
+                intgroup="condition", 
+                returnData=TRUE)
+
+ggplot(d, aes(x=condition, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_ED <- as.data.frame(res0.05_ED) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_ED, caption = "Deseq2 reuslt")
+```
+
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+
+## prepare DEG
+countData <- df_master[, c(4,5,6,7)]
+countData <- countData[as.logical(rowSums(countData != 0)), ] 
+countData <- as.data.frame(countData)
+
+
+# Constructing levels
+colData <- t(data.frame(
+  D1 = "Diapause",
+  D2 = "Diapause",
+  P1 = "Pregnancy",
+  P3 = "Pregnancy"
+))
+colnames(colData) <- c("condition")
+
+
+## DEG Analysis
+dds <- DESeqDataSetFromMatrix(countData = countData, 
+                              colData = colData, 
+                              design = ~ condition)
+
+## Setting level
+
+dds$condition <- factor(dds$condition, levels = c("Diapause","Pregnancy"))
+dds <- DESeq(dds)
+
+# Remove low frequency count
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+# Explore Results ----------------
+res <- results(dds)
+res0.05_DP <- results(dds, alpha = 0.05)
+
+```
+
+
+From diapause to pregnancy, 1751 genes (11%) are up-regulated, and 1474 genes (9.3%) are down-regulated. The M-A plot shows a significant shift in gene expression, as evidenced by a comparison between the blue and grey regions.
+
+```{r}
+# MA plot
+plotMA(res0.05_DP)
+
+d <- plotCounts(dds, gene=which.min(res0.05_DP$padj), 
+                intgroup="condition", 
+                returnData=TRUE)
+
+ggplot(d, aes(x=condition, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_DP <- as.data.frame(res0.05_DP) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_DP, caption = "Deseq2 reuslt")
+```
+
+
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+
+## prepare DEG
+countData <- df_master[, c(1,2,3,6,7)]
+countData <- countData[as.logical(rowSums(countData != 0)), ] 
+countData <- as.data.frame(countData)
+
+
+# Constructing levels
+colData <- t(data.frame(
+  E1 = "Estrus",
+  E2 = "Estrus",
+  E3 = "Estrus",
+  P1 = "Pregnancy",
+  P3 = "Pregnancy"
+))
+colnames(colData) <- c("condition")
+
+
+## DEG Analysis
+dds <- DESeqDataSetFromMatrix(countData = countData, 
+                              colData = colData, 
+                              design = ~ condition)
+
+## Setting level
+
+dds$condition <- factor(dds$condition, levels = c("Estrus","Pregnancy"))
+dds <- DESeq(dds)
+
+# Remove low frequency count
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+# Explore Results ----------------
+res <- results(dds)
+res0.05_EP <- results(dds, alpha = 0.05)
+# summary(res0.05_EP)
+
+```
+
+
+From estrus to pregnancy, 2457 genes (15%) are up-regulated, and 2224 genes (14%) are down-regulated. The M-A plot shows a significant shift in gene expression, as evidenced by a comparison between the blue and grey regions.
+
+```{r}
+# MA plot
+plotMA(res0.05_EP)
+
+d <- plotCounts(dds, gene=which.min(res0.05_EP$padj), 
+                intgroup="condition", 
+                returnData=TRUE)
+
+ggplot(d, aes(x=condition, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+
+
+res0.05_EP <- as.data.frame(res0.05_EP) %>%
+  filter(padj < 0.05)
+
+datatable(res0.05_EP, caption = "Deseq2 reuslt")
+```
+
+
+
+# 4. KEGG analysis
+
+```{r message=FALSE, warning=FALSE}
+
+
+ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
+                       dataset = "nvison_gene_ensembl")
+
+
+ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
+                       dataset = "hsapiens_gene_ensembl")
+
+process_data <- function(res0.05_ED, folder_name) {
+  
+  res0.05_ED$RowNamesColumn <- row.names(res0.05_ED)
+  res0.05_ED <- as.data.frame(res0.05_ED)
+  
+  hgnc_m <- getBM(filters = "ensembl_gene_id",
+                  attributes = c("ensembl_gene_id","hgnc_id"),
+                  values = row.names(res0.05_ED), 
+                  mart = ensembl_m)
+  
+  rna_results <- merge(res0.05_ED, hgnc_m, 
+                       by.x = "RowNamesColumn", 
+                       by.y = "ensembl_gene_id")
+  
+  
+  
+  hgnc_h <- getBM(filters = "hgnc_id",
+                  attributes = c("hgnc_id", "entrezgene_id"),
+                  values = rna_results$hgnc_id, 
+                  mart = ensembl_h)
+  
+  hgnc_duplicated <- hgnc_h[duplicated(hgnc_h$hgnc_id),]
+  
+  hgnc_h <- hgnc_h[!duplicated(hgnc_h$hgnc_id),]
+  
+  rna_results <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+  
+  # Create an ordered list of the rna_results
+  rna_list <- rna_results[order(rna_results$log2FoldChange, decreasing = TRUE),]
+  rna_list <- rna_list[!is.na(rna_list$entrezgene_id), c("entrezgene_id", "log2FoldChange")]
+  
+  # Distill rna_results list into simplified gene_list
+  gene_list <- rna_list$log2FoldChange
+  names(gene_list) <- rna_list$entrezgene_id
+  
+  keggr <- enrichKEGG(gene = names(gene_list),
+                      organism = "hsa",
+                      keyType = "ncbi-geneid",
+                      pvalueCutoff = 0.05)
+  
+  keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+  
+  pathway_list <- keggr$ID[keggr$qvalue < 0.05]
+  
+  
+  
+  # pathview(gene.data  = gene_list,
+  #          pathway.id = pathway_list,
+  #          species    = "hsa",
+  #          plot.mode  = "none",
+  #          out.suffix = folder_name,
+  #          out.dir    = output_folder) 
+  
+  result = as.data.frame(keggr)
+  result <- result[,c(2,3,4,5,6,9)] %>% 
+    mutate(pvalue = round(pvalue, 5),
+           p.adjust = round(p.adjust, 5))
+  return(result)
+}
+
+
+pathway_data <- function(res0.05_ED, folder_name, pathway_list) {
+  
+  res0.05_ED$RowNamesColumn <- row.names(res0.05_ED)
+  res0.05_ED <- as.data.frame(res0.05_ED)
+  
+  hgnc_m <- getBM(filters = "ensembl_gene_id",
+                  attributes = c("ensembl_gene_id","hgnc_id"),
+                  values = row.names(res0.05_ED), 
+                  mart = ensembl_m)
+  
+  rna_results <- merge(res0.05_ED, hgnc_m, 
+                       by.x = "RowNamesColumn", 
+                       by.y = "ensembl_gene_id")
+  
+  
+  
+  hgnc_h <- getBM(filters = "hgnc_id",
+                  attributes = c("hgnc_id", "entrezgene_id"),
+                  values = rna_results$hgnc_id, 
+                  mart = ensembl_h)
+  
+  hgnc_duplicated <- hgnc_h[duplicated(hgnc_h$hgnc_id),]
+  
+  hgnc_h <- hgnc_h[!duplicated(hgnc_h$hgnc_id),]
+  
+  rna_results <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+  
+  # Create an ordered list of the rna_results
+  rna_list <- rna_results[order(rna_results$log2FoldChange, decreasing = TRUE),]
+  rna_list <- rna_list[!is.na(rna_list$entrezgene_id), c("entrezgene_id", "log2FoldChange")]
+  
+  # Distill rna_results list into simplified gene_list
+  gene_list <- rna_list$log2FoldChange
+  names(gene_list) <- rna_list$entrezgene_id
+  
+  pathview(gene.data  = gene_list,
+           pathway.id = pathway_list,
+           species    = "hsa",
+           out.suffix = folder_name)
+  
+  return()
+}
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+result <- process_data(res0.05_ED, "ED")
+datatable(result, caption = "ED")
+result <- process_data(res0.05_DP, "DP")
+datatable(result, caption = "DP")
+result <- process_data(res0.05_EP, "EP")
+datatable(result, caption = "EP")
+
+```
+
+
+# 5. Parrelle Comparison
+
+
+### Insulin Signaling Pathway
+ED
+![ED](./pictures/hsa04910.ED_set.png)
+DP
+![DP](./pictures/hsa04910.DP_set.png)
+EP
+![EP](./pictures/hsa04910.EP_set.png)
+
+
+### Estrogen Signaling Pathway
+ED
+![ED](./pictures/hsa04915.ED_set.png)
+DP
+![DP](./pictures/hsa04915.DP_set.png)
+EP
+![EP](./pictures/hsa04915.EP_set.png)
+
+### Prolactin Signaling Pathway
+ED
+![ED](./pictures/hsa04917.ED_set.png)
+DP
+![DP](./pictures/hsa04917.DP_set.png)
+EP
+![EP](./pictures/hsa04917.EP_set.png)
+
+### Insulin Resistance Pathway
+ED
+![ED](./pictures/hsa04931.ED_set.png)
+DP
+![DP](./pictures/hsa04931.DP_set.png)
+EP
+![EP](./pictures/hsa04931.EP_set.png)
+
+
+```{r message=FALSE, warning=FALSE}
+
+pathway_list = c("hsa04910","hsa04915", "hsa04917", "hsa04931")
+
+# pathway_data(res0.05_ED, "ED_set", pathway_list)
+# pathway_data(res0.05_DP, "DP_set", pathway_list)
+# pathway_data(res0.05_EP, "EP_set", pathway_list)
+
+
+
+```

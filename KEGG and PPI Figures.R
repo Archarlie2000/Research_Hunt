@@ -10,7 +10,6 @@ options(repos = BiocManager::repositories())
 #   install.packages("BiocManager")
 # BiocManager::install(version = "3.17")
 
-
 # BiocManager::install("org.Hs.eg.db")
 # BiocManager::install("clusterProfiler")
 # BiocManager::install("biomaRt")
@@ -28,6 +27,8 @@ rna_results <- read.csv("condition_2_D_vs_1_E.csv", header=TRUE, row.names=1)
 # Add HGNC and uniprot names to the database
 ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
                    dataset = "nvison_gene_ensembl")
+
+
 hgnc_m <- getBM(filters = "ensembl_gene_id",
                attributes = c("ensembl_gene_id","hgnc_id"),
                values = rna_results$Row.names, 

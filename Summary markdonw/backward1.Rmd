@@ -94,72 +94,7 @@ preview <- rbind(E1[1:10, ], E2[1:10, ], E3[1:10, ],
 datatable(preview, caption = "preview of raw data")
 ```
 
-```{r}
 
-
-# List of dataframes and their names
-df_list <- list(E1 = E1, E2 = E2, E3 = E3, D1 = D1, D2 = D2, D3 = D3, P1 = P1, P2 = P2, P3 = P3)
-
-# Subset and rename
-df_modified_list <- lapply(names(df_list), function(df_name){
-  df <- df_list[[df_name]]
-  
-  # Subset columns
-  df <- df[, c("gene_id", "TPM")]
-  
-  # Rename the TPM column
-  colnames(df)[2] <- paste0(df_name, "_TPM")
-  
-  return(df)
-})
-
-# Now bind them all together. Since they all have "gene_id", use it as a reference to ensure order.
-final_df <- df_modified_list[[1]]  # Start with the first dataframe
-
-for(i in 2:length(df_modified_list)) {
-  final_df <- cbind(final_df, df_modified_list[[i]][, 2, drop = FALSE])  # Bind by the TPM column only
-}
-
-# The final_df now contains the gene_id and TPM columns with appropriate prefixes.
-
-
-
-library(tidyverse)
-
-# Convert the data into a long format
-long_df <- final_df %>%
-  gather(key = "period_sample", value = "TPM", -gene_id) %>%
-  separate(period_sample, into = c("period", "sample"), sep = 1)  # Separate E1 into E and 1, etc.
-
-filtered_df <- long_df %>%
-  group_by(gene_id) %>%
-  filter(sum(TPM) > 1000) %>%
-  ungroup()
-
-
-# Subset to keep only the first 10,000 rows
-filtered_df <- filtered_df[1:100, ]
-
-# Adjust factor levels for the period
-filtered_df$period <- factor(filtered_df$period, levels = c("E", "D", "P"))
-
-
-p <- ggplot(filtered_df, aes(x = period, y = TPM, group = gene_id, color = gene_id, text = gene_id)) +
-  geom_line() +
-  facet_wrap(~ sample, scales = "free_y") +  # separate plot for each sample
-  theme_minimal() +
-  theme(legend.position = "none") +  # hide the legend
-  labs(title = "TPM Changes Over Periods (Subset of First 10,000)", x = "Period", y = "TPM Value")
-
-# Convert to interactive plot
-interactive_plot <- ggplotly(p, tooltip = "text")
-
-# Display the plot
-interactive_plot
-
-
-
-```
 
 Isoforms have been accounted for; reads with isoforms are mapped back to the expected counts through their percentages.
 
@@ -213,7 +148,7 @@ pander(results_FPKM, caption = "Results for FPKM")
 
 Other analytical parameters, such as quantiles, medians, standard deviation, variance, Kruskal-Wallis tests, and differences in proportion were evaluated. However, none provided definitive conclusions, and the outcomes were inconsistent.
 
-# 2. Principle Componenet Analysis (PCA)
+# 2. Principle Componenet Analysis (PCA) with raw counts
 
 PCA clusters the similar samples based on impacts from different genes. P1 and P3 formed a cluster. As we learned previously, P2 might not be valid. E1, E2, E3 had formed another cluster. However; D1, D2, and D3 seems to be scattered. I decided to remove P2 and D3.
 
@@ -271,6 +206,7 @@ df_master$P3 <- as.integer(round(as.numeric(unlist(df_master$P3))))
 
 
 ```
+
 
 
 # 3. Deseq2 (Calculate significant level)
@@ -591,12 +527,12 @@ pathway_data <- function(res0.05_ED, folder_name, pathway_list) {
 
 
 ```{r message=FALSE, warning=FALSE}
-result <- process_data(res0.05_ED, "ED")
-datatable(result, caption = "ED")
-result <- process_data(res0.05_DP, "DP")
-datatable(result, caption = "DP")
-result <- process_data(res0.05_EP, "EP")
-datatable(result, caption = "EP")
+# result <- process_data(res0.05_ED, "ED")
+# datatable(result, caption = "ED")
+# result <- process_data(res0.05_DP, "DP")
+# datatable(result, caption = "DP")
+# result <- process_data(res0.05_EP, "EP")
+# datatable(result, caption = "EP")
 
 ```
 

@@ -1,0 +1,320 @@
+---
+title: "Follow_instruction"
+date: "2023-12-20"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+
+
+```
+
+
+```{r cars, message=FALSE, warning=FALSE}
+# contructing dds dataframe from cts and coldata
+# BiocManager::install("apeglm")
+
+options(repos = BiocManager::repositories())
+library(kableExtra)
+library(tidyverse)
+library(mosaic)
+library(pander)
+library(ggplot2)
+library(ggfortify)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(AnnotationDbi)
+library(DT)
+library(DESeq2)
+library(ggplot2)
+library(biomaRt)
+library(pathview)
+library(STRINGdb)
+library(png)
+library(grid)
+library(plotly)
+library(apeglm)
+library(biomaRt)
+library(pathview)
+library(STRINGdb)
+options(repos = BiocManager::repositories())
+
+
+
+# Load data
+E1 <- read.csv('13E-1_S26_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E1")
+E2 <- read.csv('13E-2_S29_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E2")
+E3 <- read.csv('13E-3_S32_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "E3")
+D1 <- read.csv('13D-1_S27_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D1")
+D2 <- read.csv('13D-2_S30_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D2")
+D3 <- read.csv('13D-3_S33_L007.csv', header = TRUE) %>% 
+  mutate(phase = "D3")
+P1 <- read.csv('13P-1_S28_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P1")
+P2 <- read.csv('13P-2_S31_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P2")
+P3 <- read.csv('13P-3_S34_L007.csv', header = TRUE)  %>% 
+  mutate(phase = "P3")
+
+
+#Append data
+df_master <- cbind(E1$expected_count, 
+                   E2$expected_count, E3$expected_count,
+              D1$expected_count, D2$expected_count, ... = D3$expected_count,
+              P1$expected_count, P2$expected_count, P3$expected_count)
+
+rownames(df_master) <- E1$gene_id
+
+colnames(df_master) <- c("E1", "E2", "E3",
+                    "D1", "D2", "D3",
+                    "P1", "P2", "P3")
+
+
+# Construct Cell count matrix
+cts <- df_master <- df_master[as.logical(rowSums(df_master != 0)), ]
+cts <- apply(cts, 2, floor)
+
+
+
+# Conduct differentail gene Analysis
+coldata <- read.csv('coldata.csv', header = TRUE, row.names = 1)
+library("DESeq2")
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ condition)
+
+
+featureData <- data.frame(gene=rownames(cts))
+mcols(dds) <- DataFrame(mcols(dds), featureData)
+
+
+dds$condition <- factor(dds$condition, levels = c("E","D","P"))
+dds <- DESeq(dds)
+res <- results(dds)
+res <- res[order(res$padj),]
+res <- results(dds, alpha = 0.01)
+
+# Add HGNC and uniprot names to the database
+ensembl_m <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
+                   dataset = "nvison_gene_ensembl")
+
+ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", 
+                   dataset = "hsapiens_gene_ensembl")
+```
+
+## Summary
+```{r}
+sum(res$padj < 0.01, na.rm=TRUE)
+summary(res)
+```
+```{r}
+#E vs D
+
+# res <- results(dds, contrast=c("condition", "E", "D"))
+# res_filtered <- res[!is.na(res$padj) & res$padj <= 0.05, ]
+# summary(res_filtered)
+
+# D P
+# res <- results(dds, contrast=c("condition","D","P"))
+# res_filtered <- res[!is.na(res$padj) & res$padj <= 0.05, ]
+# summary(res_filtered)
+
+# E P
+# res <- results(dds, contrast=c("condition","E","P"))
+# res_filtered <- res[!is.na(res$padj) & res$padj <= 0.05, ]
+# summary(res_filtered)
+
+```
+
+## condition_D_vs_E
+```{r}
+
+# Shrink the LFC
+resLFC <- lfcShrink(dds, coef="condition_D_vs_E", type="apeglm")
+summary(resLFC)
+
+# Annotate genes
+hgnc_m <- getBM(filters = "ensembl_gene_id",
+               attributes = c("ensembl_gene_id","hgnc_id"),
+               values = rownames(resLFC), 
+               mart = ensembl_m)
+resLFC_df <- as.data.frame(resLFC)
+resLFC_df <- resLFC_df %>%
+  filter(padj < 0.01 & !is.na(padj))
+resLFC_df$gene_id <- rownames(resLFC_df)
+rna_results <- merge(resLFC_df, 
+                     hgnc_m, 
+                     by.x = "gene_id", 
+                     by.y = "ensembl_gene_id")
+
+hgnc_h <- getBM(filters = "hgnc_id",
+              attributes = c("hgnc_id", "entrezgene_id"),
+              values = rna_results$hgnc_id, 
+              mart = ensembl_h)
+rna_results_DE <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+kable(rna_results_DE)
+
+
+# MA plot
+plotMA(resLFC, ylim=c(-2,2))
+```
+
+
+## ---------------------------------------------------------------
+## condition_P_vs_E
+```{r}
+resLFC <- lfcShrink(dds, coef="condition_P_vs_E", type="apeglm")
+summary(resLFC)
+
+# Annotate genes
+hgnc_m <- getBM(filters = "ensembl_gene_id",
+               attributes = c("ensembl_gene_id","hgnc_id"),
+               values = rownames(resLFC), 
+               mart = ensembl_m)
+resLFC_df <- as.data.frame(resLFC)
+resLFC_df <- resLFC_df %>%
+  filter(padj < 0.01 & !is.na(padj))
+resLFC_df$gene_id <- rownames(resLFC_df)
+rna_results <- merge(resLFC_df, 
+                     hgnc_m, 
+                     by.x = "gene_id", 
+                     by.y = "ensembl_gene_id")
+
+hgnc_h <- getBM(filters = "hgnc_id",
+              attributes = c("hgnc_id", "entrezgene_id"),
+              values = rna_results$hgnc_id, 
+              mart = ensembl_h)
+rna_results_EP <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+kable(rna_results_EP)
+
+
+plotMA(resLFC, ylim=c(-2,2))
+```
+
+## condition_P_vs_D
+```{r}
+coldata <- read.csv('coldata.csv', header = TRUE, row.names = 1)
+library("DESeq2")
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ condition)
+featureData <- data.frame(gene=rownames(cts))
+mcols(dds) <- DataFrame(mcols(dds), featureData)
+
+
+dds$condition <- factor(dds$condition, levels = c("D","E","P"))
+dds <- DESeq(dds)
+res <- results(dds)
+res <- res[order(res$pvalue),]
+
+res <- results(dds, alpha=0.01)
+
+resLFC <- lfcShrink(dds, coef="condition_P_vs_D", type="apeglm")
+summary(resLFC)
+
+# Annotate genes
+hgnc_m <- getBM(filters = "ensembl_gene_id",
+               attributes = c("ensembl_gene_id","hgnc_id"),
+               values = rownames(resLFC), 
+               mart = ensembl_m)
+resLFC_df <- as.data.frame(resLFC)
+resLFC_df <- resLFC_df %>%
+  filter(padj < 0.01 & !is.na(padj))
+resLFC_df$gene_id <- rownames(resLFC_df)
+rna_results <- merge(resLFC_df, 
+                     hgnc_m, 
+                     by.x = "gene_id", 
+                     by.y = "ensembl_gene_id")
+
+hgnc_h <- getBM(filters = "hgnc_id",
+              attributes = c("hgnc_id", "entrezgene_id"),
+              values = rna_results$hgnc_id, 
+              mart = ensembl_h)
+rna_results_PD <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+kable(rna_results_DP)
+
+plotMA(resLFC, ylim=c(-2,2))
+```
+
+
+# Independent hypothesis weighting
+```{r fig.width=8}
+
+library("IHW")
+resIHW <- results(dds, filterFun=ihw)
+summary(resIHW)
+sum(resIHW$padj < 0.1, na.rm=TRUE)
+metadata(resIHW)$ihwResult
+
+
+```
+
+# Repeactively shows up genes
+```{r}
+gene_ids_DE <- rna_results_DE$gene_id
+gene_ids_EP <- rna_results_EP$gene_id
+gene_ids_PD <- rna_results_PD$gene_id
+
+# Find intersection of gene_ids among the three data frames
+common_gene_ids <- intersect(intersect(gene_ids_DE, gene_ids_EP), gene_ids_PD)
+
+# View the common gene ids
+common_gene_ids
+
+
+# Pairwise intersections
+intersect_DE_EP <- intersect(gene_ids_DE, gene_ids_EP)
+intersect_DE_PD <- intersect(gene_ids_DE, gene_ids_PD)
+intersect_EP_PD <- intersect(gene_ids_EP, gene_ids_PD)
+
+intersect_DE_EP
+intersect_DE_PD
+intersect_EP_PD
+
+```
+
+
+
+
+# Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+
+plotCounts(dds, gene=which.min(res$padj), intgroup="condition")
+
+ntd <- normTransform(dds)
+library("vsn")
+meanSdPlot(assay(ntd))
+
+
+```
+
+
+# Plot counts
+```{r}
+d <- plotCounts(dds, gene=which.min(res$padj), intgroup="condition", 
+                                returnData=TRUE)
+
+library("ggplot2")
+ggplot(d, aes(x=condition, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -1,11 +1,12 @@
 ---
-title: "Follow_instruction"
+title: "Paper Mock up"
 date: "2023-12-20"
 output: 
   html_document:
     theme: cerulean
     code_folding: hide
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -15,7 +16,6 @@ knitr::opts_chunk$set(
 
 
 ```
-
 
 ```{r cars, message=FALSE, warning=FALSE}
 # contructing dds dataframe from cts and coldata
@@ -44,6 +44,8 @@ library(apeglm)
 library(biomaRt)
 library(pathview)
 library(STRINGdb)
+library(tidyverse)
+library(kableExtra)
 options(repos = BiocManager::repositories())
 
 
@@ -114,11 +116,11 @@ ensembl_h <- useMart(biomart = "ENSEMBL_MART_ENSEMBL",
                    dataset = "hsapiens_gene_ensembl")
 ```
 
-## Summary
 ```{r}
-sum(res$padj < 0.01, na.rm=TRUE)
-summary(res)
+# sum(res$padj < 0.01, na.rm=TRUE)
+# summary(res)
 ```
+
 ```{r}
 #E vs D
 
@@ -131,28 +133,32 @@ summary(res)
 # res_filtered <- res[!is.na(res$padj) & res$padj <= 0.05, ]
 # summary(res_filtered)
 
+
 # E P
 # res <- results(dds, contrast=c("condition","E","P"))
 # res_filtered <- res[!is.na(res$padj) & res$padj <= 0.05, ]
 # summary(res_filtered)
 
 ```
+#condition_D_vs_E
 
-## condition_D_vs_E
+### Table 1 - DEGs
+
+Number of differential expressed genes (DEGs) in uterus of diapause and 5 days after embryo activation.
+
 ```{r}
 
 # Shrink the LFC
 resLFC <- lfcShrink(dds, coef="condition_D_vs_E", type="apeglm")
-summary(resLFC)
+# summary(resLFC)
 
 # Annotate genes
 hgnc_m <- getBM(filters = "ensembl_gene_id",
                attributes = c("ensembl_gene_id","hgnc_id"),
                values = rownames(resLFC), 
                mart = ensembl_m)
+
 resLFC_df <- as.data.frame(resLFC)
-resLFC_df <- resLFC_df %>%
-  filter(padj < 0.01 & !is.na(padj))
 resLFC_df$gene_id <- rownames(resLFC_df)
 rna_results <- merge(resLFC_df, 
                      hgnc_m, 
@@ -163,29 +169,273 @@ hgnc_h <- getBM(filters = "hgnc_id",
               attributes = c("hgnc_id", "entrezgene_id"),
               values = rna_results$hgnc_id, 
               mart = ensembl_h)
-rna_results_DE <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
-kable(rna_results_DE)
 
+rna_results_DE <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+
+
+df <- as.data.frame(rna_results_DE)
+
+# Filter the data frame based on log2 fold change and p-value thresholds
+activated_diapause <- df %>%
+  filter(log2FoldChange > log2(2), padj < 0.05)
+diapause_activated <- df %>%
+  filter(log2FoldChange < -log2(2), padj < 0.05)
+
+# Count the number of genes for each condition
+counts <- data.frame(
+  Comparison = c('Activated > Diapause', 'Diapause > Activated', 'All'),
+  `Fold > 2` = c(
+    nrow(activated_diapause), 
+    nrow(diapause_activated), 
+    nrow(activated_diapause) + nrow(diapause_activated)
+  ),
+  `Fold > 1.5` = c(
+    sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  ),
+  `p < 0.05` = c(
+    nrow(activated_diapause) + sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(diapause_activated) + sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(activated_diapause) + nrow(diapause_activated) + sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  )
+)
+
+# Set column names with footnotes (superscript annotations)
+colnames(counts) <- c("Comparison", "Fold > 2", "Fold > 1.5", "p < 0.05")
+
+# Set the row names to match the comparison descriptions
+rownames(counts) <- c("Estrus > Diapause", "Diapause > Estrus", "All")
+
+
+knitr::kable(counts, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
 
 # MA plot
 plotMA(resLFC, ylim=c(-2,2))
 ```
 
+### Table 2 - Up and down regulation
 
-## ---------------------------------------------------------------
+The top 20 most DEGs in the activated uterus compared with the diapause uterus (p \< 0.05).
+
+```{r}
+
+library(org.Hs.eg.db)
+
+
+top20 <- df %>% 
+  arrange(desc(abs(log2FoldChange))) %>% 
+  slice(1:20)
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(top20$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first")
+
+# Get gene descriptions
+gene_descriptions <- mapIds(org.Hs.eg.db,
+                            keys = entrez_ids,
+                            column = "GENENAME",
+                            keytype = "ENTREZID",
+                            multiVals = "first")
+
+# Combine the results into a data frame
+gene_info <- data.frame(entrez_id = entrez_ids,
+                        symbol = gene_symbols,
+                        description = gene_descriptions)
+
+top20 <- top20[, !(colnames(top20) %in% c("hgnc_id", "gene_id", "baseMean", "pvalue"))]
+gene_info_appended <- merge(gene_info, top20, by.x = "entrez_id", by.y = "entrezgene_id")
+gene_info_appended <- gene_info_appended[, !colnames(gene_info_appended) %in% "entrez_id"]
+
+
+# View the data frame
+# gene_info_appended
+
+colnames(gene_info_appended) <- c("Gene Symbol", "Gene Description","Log2 Fold Change", "lfcSE", "p Value")
+
+knitr::kable(gene_info_appended, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em")
+
+
+```
+
+### Table 3 - GO
+
+Top 10 gene ontology (GO) terms and enriched genes in the activated uterus vs. the diapause uterus at p \< 0.01.
+
+```{r}
+
+gor <- enrichGO(gene = activated_diapause[activated_diapause$pvalue < 0.05, ]$entrezgene_id,
+                OrgDb = org.Hs.eg.db,
+                ont = "ALL",
+                pvalueCutoff = 0.01,
+                readable = TRUE)
+
+ 
+df_gor <- as.data.frame(gor) %>% select(-ID)
+
+
+
+knitr::kable(df_gor, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em") %>%
+  column_spec(6, width = "15em") 
+
+
+
+
+
+keggr <- enrichKEGG(gene = df[df$pvalue < 0.05, ]$entrezgene_id,
+                 organism = "hsa",
+                 keyType = "ncbi-geneid",
+                 pvalueCutoff = 0.01)
+
+```
+
+### KEGG Pathway Analysis of DEGs
+
+```{r}
+
+keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+
+selected_columns <- keggr[, c("Description", "pvalue", "geneID")]
+# selected_columns
+
+knitr::kable(selected_columns, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "30em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
+
+```
+
+### PPI Network Analysis
+
+```{r message=FALSE, warning=FALSE}
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(df$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first",
+                       ifnotfound = NA)
+
+
+valid_names <- names(gene_symbols)[!is.na(names(gene_symbols))]
+valid_symbols <- gene_symbols[!is.na(names(gene_symbols))]
+
+# Now create the data frame
+gene_symbols_df <- data.frame(entrez_id = valid_names, 
+                              symbol = unlist(valid_symbols), 
+                              stringsAsFactors = FALSE)
+
+
+
+# Merge the gene symbols data frame with your original data frame
+PPI_info <- merge(df, gene_symbols_df, by.x = "entrezgene_id", by.y = "entrez_id") %>%
+  dplyr::select(pvalue, log2FoldChange, symbol )%>%
+  rename(pvalue = pvalue, logFC = log2FoldChange, gene = symbol)
+
+library(STRINGdb)
+
+
+# create a new STRING_db object
+string_db <- STRINGdb$new()
+
+# map to STRING
+example1_mapped = string_db$map( PPI_info, "gene", removeUnmappedRows = TRUE )
+
+# get the best 200 hits
+hits = example1_mapped$STRING_id[1:20]  
+
+# plot the STRING network png 
+string_db$plot_network( hits )
+
+# plot a protein-protein enrichment graph of the best 1000 hits in order to see how the ppi signal is distributed along the sorted list
+string_db$plot_ppi_enrichment( example1_mapped$STRING_id[1:1000] )
+
+
+```
+
+
+
+
+
+
 ## condition_P_vs_E
+
 ```{r}
 resLFC <- lfcShrink(dds, coef="condition_P_vs_E", type="apeglm")
-summary(resLFC)
+# summary(resLFC)
+
+hgnc_m <- getBM(filters = "ensembl_gene_id",
+               attributes = c("ensembl_gene_id","hgnc_id"),
+               values = rownames(resLFC),
+               mart = ensembl_m)
+resLFC_df <- as.data.frame(resLFC)
+resLFC_df <- resLFC_df %>%
+  filter(padj < 0.01 & !is.na(padj))
+resLFC_df$gene_id <- rownames(resLFC_df)
+rna_results <- merge(resLFC_df,
+                     hgnc_m,
+                     by.x = "gene_id",
+                     by.y = "ensembl_gene_id")
+
+hgnc_h <- getBM(filters = "hgnc_id",
+              attributes = c("hgnc_id", "entrezgene_id"),
+              values = rna_results$hgnc_id,
+              mart = ensembl_h)
+rna_results_EP <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+# kable(rna_results_EP)
+
+
+# plotMA(resLFC, ylim=c(-2,2))
+```
+
+### Table 1 - DEGs
+
+Number of differential expressed genes (DEGs) in uterus of diapause and 5 days after embryo activation.
+
+```{r}
+
+# Shrink the LFC
+resLFC <- lfcShrink(dds, coef="condition_P_vs_E", type="apeglm")
+# summary(resLFC)
 
 # Annotate genes
 hgnc_m <- getBM(filters = "ensembl_gene_id",
                attributes = c("ensembl_gene_id","hgnc_id"),
                values = rownames(resLFC), 
                mart = ensembl_m)
+
 resLFC_df <- as.data.frame(resLFC)
-resLFC_df <- resLFC_df %>%
-  filter(padj < 0.01 & !is.na(padj))
 resLFC_df$gene_id <- rownames(resLFC_df)
 rna_results <- merge(resLFC_df, 
                      hgnc_m, 
@@ -196,14 +446,224 @@ hgnc_h <- getBM(filters = "hgnc_id",
               attributes = c("hgnc_id", "entrezgene_id"),
               values = rna_results$hgnc_id, 
               mart = ensembl_h)
-rna_results_EP <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
-kable(rna_results_EP)
+
+rna_results_DE <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
 
 
+df <- as.data.frame(rna_results_DE)
+
+# Filter the data frame based on log2 fold change and p-value thresholds
+activated_diapause <- df %>%
+  filter(log2FoldChange > log2(2), padj < 0.05)
+diapause_activated <- df %>%
+  filter(log2FoldChange < -log2(2), padj < 0.05)
+
+# Count the number of genes for each condition
+counts <- data.frame(
+  Comparison = c('Activated > Diapause', 'Diapause > Activated', 'All'),
+  `Fold > 2` = c(
+    nrow(activated_diapause), 
+    nrow(diapause_activated), 
+    nrow(activated_diapause) + nrow(diapause_activated)
+  ),
+  `Fold > 1.5` = c(
+    sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  ),
+  `p < 0.05` = c(
+    nrow(activated_diapause) + sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(diapause_activated) + sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(activated_diapause) + nrow(diapause_activated) + sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  )
+)
+
+# Set column names with footnotes (superscript annotations)
+colnames(counts) <- c("Comparison", "Fold > 2", "Fold > 1.5", "p < 0.05")
+
+# Set the row names to match the comparison descriptions
+rownames(counts) <- c("Estrus > Diapause", "Diapause > Estrus", "All")
+
+
+knitr::kable(counts, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
+
+# MA plot
 plotMA(resLFC, ylim=c(-2,2))
 ```
 
+### Table 2 - Up and down regulation
+
+The top 20 most DEGs in the activated uterus compared with the diapause uterus (p \< 0.05).
+
+```{r}
+
+library(org.Hs.eg.db)
+
+
+top20 <- df %>% 
+  arrange(desc(abs(log2FoldChange))) %>% 
+  slice(1:20)
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(top20$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first")
+
+# Get gene descriptions
+gene_descriptions <- mapIds(org.Hs.eg.db,
+                            keys = entrez_ids,
+                            column = "GENENAME",
+                            keytype = "ENTREZID",
+                            multiVals = "first")
+
+# Combine the results into a data frame
+gene_info <- data.frame(entrez_id = entrez_ids,
+                        symbol = gene_symbols,
+                        description = gene_descriptions)
+
+top20 <- top20[, !(colnames(top20) %in% c("hgnc_id", "gene_id", "baseMean", "pvalue"))]
+gene_info_appended <- merge(gene_info, top20, by.x = "entrez_id", by.y = "entrezgene_id")
+gene_info_appended <- gene_info_appended[, !colnames(gene_info_appended) %in% "entrez_id"]
+
+
+# View the data frame
+# gene_info_appended
+
+colnames(gene_info_appended) <- c("Gene Symbol", "Gene Description","Log2 Fold Change", "lfcSE", "p Value")
+
+knitr::kable(gene_info_appended, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em")
+
+
+```
+
+### Table 3 - GO
+
+Top 10 gene ontology (GO) terms and enriched genes in the activated uterus vs. the diapause uterus at p \< 0.01.
+
+```{r}
+
+gor <- enrichGO(gene = activated_diapause[activated_diapause$pvalue < 0.05, ]$entrezgene_id,
+                OrgDb = org.Hs.eg.db,
+                ont = "ALL",
+                pvalueCutoff = 0.01,
+                readable = TRUE)
+
+ 
+df_gor <- as.data.frame(gor) %>% select(-ID)
+
+
+
+knitr::kable(df_gor, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em") %>%
+  column_spec(6, width = "15em") 
+
+
+
+
+
+keggr <- enrichKEGG(gene = df[df$pvalue < 0.05, ]$entrezgene_id,
+                 organism = "hsa",
+                 keyType = "ncbi-geneid",
+                 pvalueCutoff = 0.01)
+
+```
+
+### KEGG Pathway Analysis of DEGs
+
+```{r}
+
+keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+
+selected_columns <- keggr[, c("Description", "pvalue", "geneID")]
+# selected_columns
+
+knitr::kable(selected_columns, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "30em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
+
+```
+
+### PPI Network Analysis
+
+```{r message=FALSE, warning=FALSE}
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(df$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first",
+                       ifnotfound = NA)
+
+
+valid_names <- names(gene_symbols)[!is.na(names(gene_symbols))]
+valid_symbols <- gene_symbols[!is.na(names(gene_symbols))]
+
+# Now create the data frame
+gene_symbols_df <- data.frame(entrez_id = valid_names, 
+                              symbol = unlist(valid_symbols), 
+                              stringsAsFactors = FALSE)
+
+
+
+# Merge the gene symbols data frame with your original data frame
+PPI_info <- merge(df, gene_symbols_df, by.x = "entrezgene_id", by.y = "entrez_id") %>%
+  dplyr::select(pvalue, log2FoldChange, symbol )%>%
+  rename(pvalue = pvalue, logFC = log2FoldChange, gene = symbol)
+
+library(STRINGdb)
+
+
+# create a new STRING_db object
+string_db <- STRINGdb$new()
+
+# map to STRING
+example1_mapped = string_db$map( PPI_info, "gene", removeUnmappedRows = TRUE )
+
+# get the best 200 hits
+hits = example1_mapped$STRING_id[1:20]  
+
+# plot the STRING network png 
+string_db$plot_network( hits )
+
+# plot a protein-protein enrichment graph of the best 1000 hits in order to see how the ppi signal is distributed along the sorted list
+string_db$plot_ppi_enrichment( example1_mapped$STRING_id[1:1000] )
+
+
+```
+
+
 ## condition_P_vs_D
+
 ```{r}
 coldata <- read.csv('coldata.csv', header = TRUE, row.names = 1)
 library("DESeq2")
@@ -222,16 +682,52 @@ res <- res[order(res$pvalue),]
 res <- results(dds, alpha=0.01)
 
 resLFC <- lfcShrink(dds, coef="condition_P_vs_D", type="apeglm")
-summary(resLFC)
+# summary(resLFC)
+
+hgnc_m <- getBM(filters = "ensembl_gene_id",
+               attributes = c("ensembl_gene_id","hgnc_id"),
+               values = rownames(resLFC),
+               mart = ensembl_m)
+resLFC_df <- as.data.frame(resLFC)
+
+resLFC_df <- resLFC_df %>%
+  filter(padj < 0.01 & !is.na(padj))
+
+resLFC_df$gene_id <- rownames(resLFC_df)
+rna_results <- merge(resLFC_df,
+                     hgnc_m,
+                     by.x = "gene_id",
+                     by.y = "ensembl_gene_id")
+
+hgnc_h <- getBM(filters = "hgnc_id",
+              attributes = c("hgnc_id", "entrezgene_id"),
+              values = rna_results$hgnc_id,
+              mart = ensembl_h)
+rna_results_PD <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+# kable(rna_results_PD)
+
+# plotMA(resLFC, ylim=c(-2,2))
+```
+
+
+
+### Table 1 - DEGs
+
+Number of differential expressed genes (DEGs) in uterus of diapause and 5 days after embryo activation.
+
+```{r}
+
+# Shrink the LFC
+resLFC <- lfcShrink(dds, coef="condition_P_vs_D", type="apeglm")
+# summary(resLFC)
 
 # Annotate genes
 hgnc_m <- getBM(filters = "ensembl_gene_id",
                attributes = c("ensembl_gene_id","hgnc_id"),
                values = rownames(resLFC), 
                mart = ensembl_m)
+
 resLFC_df <- as.data.frame(resLFC)
-resLFC_df <- resLFC_df %>%
-  filter(padj < 0.01 & !is.na(padj))
 resLFC_df$gene_id <- rownames(resLFC_df)
 rna_results <- merge(resLFC_df, 
                      hgnc_m, 
@@ -242,14 +738,225 @@ hgnc_h <- getBM(filters = "hgnc_id",
               attributes = c("hgnc_id", "entrezgene_id"),
               values = rna_results$hgnc_id, 
               mart = ensembl_h)
-rna_results_PD <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
-kable(rna_results_DP)
 
+rna_results_DE <- merge(rna_results, hgnc_h, by.x = "hgnc_id", by.y = "hgnc_id")
+
+
+df <- as.data.frame(rna_results_DE)
+
+# Filter the data frame based on log2 fold change and p-value thresholds
+activated_diapause <- df %>%
+  filter(log2FoldChange > log2(2), padj < 0.05)
+diapause_activated <- df %>%
+  filter(log2FoldChange < -log2(2), padj < 0.05)
+
+# Count the number of genes for each condition
+counts <- data.frame(
+  Comparison = c('Activated > Diapause', 'Diapause > Activated', 'All'),
+  `Fold > 2` = c(
+    nrow(activated_diapause), 
+    nrow(diapause_activated), 
+    nrow(activated_diapause) + nrow(diapause_activated)
+  ),
+  `Fold > 1.5` = c(
+    sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  ),
+  `p < 0.05` = c(
+    nrow(activated_diapause) + sum(df$log2FoldChange > log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(diapause_activated) + sum(df$log2FoldChange < -log2(1.5) & df$padj < 0.05, na.rm = TRUE), 
+    nrow(activated_diapause) + nrow(diapause_activated) + sum(abs(df$log2FoldChange) > log2(1.5) & df$padj < 0.05, na.rm = TRUE)
+  )
+)
+
+# Set column names with footnotes (superscript annotations)
+colnames(counts) <- c("Comparison", "Fold > 2", "Fold > 1.5", "p < 0.05")
+
+# Set the row names to match the comparison descriptions
+rownames(counts) <- c("Estrus > Diapause", "Diapause > Estrus", "All")
+
+
+knitr::kable(counts, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
+
+# MA plot
 plotMA(resLFC, ylim=c(-2,2))
 ```
 
+### Table 2 - Up and down regulation
+
+The top 20 most DEGs in the activated uterus compared with the diapause uterus (p \< 0.05).
+
+```{r}
+
+library(org.Hs.eg.db)
+
+
+top20 <- df %>% 
+  arrange(desc(abs(log2FoldChange))) %>% 
+  slice(1:20)
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(top20$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first")
+
+# Get gene descriptions
+gene_descriptions <- mapIds(org.Hs.eg.db,
+                            keys = entrez_ids,
+                            column = "GENENAME",
+                            keytype = "ENTREZID",
+                            multiVals = "first")
+
+# Combine the results into a data frame
+gene_info <- data.frame(entrez_id = entrez_ids,
+                        symbol = gene_symbols,
+                        description = gene_descriptions)
+
+top20 <- top20[, !(colnames(top20) %in% c("hgnc_id", "gene_id", "baseMean", "pvalue"))]
+gene_info_appended <- merge(gene_info, top20, by.x = "entrez_id", by.y = "entrezgene_id")
+gene_info_appended <- gene_info_appended[, !colnames(gene_info_appended) %in% "entrez_id"]
+
+
+# View the data frame
+# gene_info_appended
+
+colnames(gene_info_appended) <- c("Gene Symbol", "Gene Description","Log2 Fold Change", "lfcSE", "p Value")
+
+knitr::kable(gene_info_appended, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em")
+
+
+```
+
+### Table 3 - GO
+
+Top 10 gene ontology (GO) terms and enriched genes in the activated uterus vs. the diapause uterus at p \< 0.01.
+
+```{r}
+
+gor <- enrichGO(gene = activated_diapause[activated_diapause$pvalue < 0.05, ]$entrezgene_id,
+                OrgDb = org.Hs.eg.db,
+                ont = "ALL",
+                pvalueCutoff = 0.01,
+                readable = TRUE)
+
+ 
+df_gor <- as.data.frame(gor) %>% select(-ID)
+
+
+
+knitr::kable(df_gor, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em") %>%
+  column_spec(5, width = "15em") %>%
+  column_spec(6, width = "15em") 
+
+
+
+
+
+keggr <- enrichKEGG(gene = df[df$pvalue < 0.05, ]$entrezgene_id,
+                 organism = "hsa",
+                 keyType = "ncbi-geneid",
+                 pvalueCutoff = 0.01)
+
+```
+
+### KEGG Pathway Analysis of DEGs
+
+```{r}
+
+keggr <- setReadable(keggr, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+
+selected_columns <- keggr[, c("Description", "pvalue", "geneID")]
+# selected_columns
+
+knitr::kable(selected_columns, "html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  column_spec(1, width = "30em") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "15em") %>%
+  column_spec(4, width = "15em")
+
+```
+
+### PPI Network Analysis
+
+```{r message=FALSE, warning=FALSE}
+
+
+# Assuming you have a vector of ENTREZ gene IDs
+entrez_ids <- as.character(df$entrezgene_id)
+
+# Get gene symbols
+gene_symbols <- mapIds(org.Hs.eg.db,
+                       keys = entrez_ids,
+                       column = "SYMBOL",
+                       keytype = "ENTREZID",
+                       multiVals = "first",
+                       ifnotfound = NA)
+
+
+valid_names <- names(gene_symbols)[!is.na(names(gene_symbols))]
+valid_symbols <- gene_symbols[!is.na(names(gene_symbols))]
+
+# Now create the data frame
+gene_symbols_df <- data.frame(entrez_id = valid_names, 
+                              symbol = unlist(valid_symbols), 
+                              stringsAsFactors = FALSE)
+
+
+
+# Merge the gene symbols data frame with your original data frame
+PPI_info <- merge(df, gene_symbols_df, by.x = "entrezgene_id", by.y = "entrez_id") %>%
+  dplyr::select(pvalue, log2FoldChange, symbol )%>%
+  rename(pvalue = pvalue, logFC = log2FoldChange, gene = symbol)
+
+library(STRINGdb)
+
+
+# create a new STRING_db object
+string_db <- STRINGdb$new()
+
+# map to STRING
+example1_mapped = string_db$map( PPI_info, "gene", removeUnmappedRows = TRUE )
+
+# get the best 200 hits
+hits = example1_mapped$STRING_id[1:20]  
+
+# plot the STRING network png 
+string_db$plot_network( hits )
+
+# plot a protein-protein enrichment graph of the best 1000 hits in order to see how the ppi signal is distributed along the sorted list
+string_db$plot_ppi_enrichment( example1_mapped$STRING_id[1:1000] )
+
+
+```
+
+
 
 # Independent hypothesis weighting
+
 ```{r fig.width=8}
 
 library("IHW")
@@ -257,18 +964,18 @@ resIHW <- results(dds, filterFun=ihw)
 summary(resIHW)
 sum(resIHW$padj < 0.1, na.rm=TRUE)
 metadata(resIHW)$ihwResult
-
-
 ```
 
+
 # Repeactively shows up genes
+
 ```{r}
 gene_ids_DE <- rna_results_DE$gene_id
 gene_ids_EP <- rna_results_EP$gene_id
-gene_ids_PD <- rna_results_PD$gene_id
+gene_ids_DP <- rna_results_PD$gene_id
 
 # Find intersection of gene_ids among the three data frames
-common_gene_ids <- intersect(intersect(gene_ids_DE, gene_ids_EP), gene_ids_PD)
+common_gene_ids <- intersect(intersect(gene_ids_DE, gene_ids_EP), gene_ids_DP)
 
 # View the common gene ids
 common_gene_ids
@@ -276,16 +983,15 @@ common_gene_ids
 
 # Pairwise intersections
 intersect_DE_EP <- intersect(gene_ids_DE, gene_ids_EP)
-intersect_DE_PD <- intersect(gene_ids_DE, gene_ids_PD)
-intersect_EP_PD <- intersect(gene_ids_EP, gene_ids_PD)
+intersect_DE_DP <- intersect(gene_ids_DE, gene_ids_DP)
+intersect_EP_DP <- intersect(gene_ids_EP, gene_ids_DP)
 
 intersect_DE_EP
-intersect_DE_PD
-intersect_EP_PD
+intersect_DE_DP
+intersect_EP_DP
+
 
 ```
-
-
 
 
 # Including Plots
@@ -304,8 +1010,8 @@ meanSdPlot(assay(ntd))
 
 ```
 
-
 # Plot counts
+
 ```{r}
 d <- plotCounts(dds, gene=which.min(res$padj), intgroup="condition", 
                                 returnData=TRUE)
